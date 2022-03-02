@@ -57,6 +57,7 @@ pre/post series-upgrade machine charm events are also omitted, but these are sim
 
 ### Notes on the Setup phase
 * The only events that are guaranteed to always occur during Setup are `start` and `install`. The other events only happen if the charm happens to have (peer) relations at install time (e.g. if a charm that already is related to another gets scaled up) or it has storage. Same goes for leadership events.
+* `config-changed` occurs between `start` and `install` regardless of whether any leadership (or relation) event fires.
 
 ### Notes on the Maintenance phase
 * `update-status` is fired automatically and periodically, at a configurable interval (default is 5m).
