@@ -14,7 +14,7 @@ flowchart TD
         config_changed --> start
     end
 
-    subgraph Maintenance
+    subgraph Operation
         upgrade_charm[upgrade-charm] --- 
         update_status[update-status] ---
         config_changed_mant[config-changed] 
@@ -35,7 +35,7 @@ flowchart TD
     
     Start:::meta --> 
     Setup --> 
-    Maintenance --> 
+    Operation --> 
     Teardown --> 
     End:::meta
 
@@ -54,11 +54,11 @@ classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
 ```
 
 ## Understanding the graph
-You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a maintenance phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
+You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a operation phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
 
 The obvious omission from the graph is the `<*>-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its simmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
 
-`[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the maintenance phase. Summary below:
+`[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the opeartion phase. Summary below:
 
 ```mermaid
 flowchart TD
@@ -71,7 +71,7 @@ flowchart TD
         end
     end
     
-    subgraph Maintenance [Maintenance -- Machine]
+    subgraph Operation [Operation -- Machine]
         pre_series_upgrade[pre-series-upgrade]:::machine -.- post_series_upgrade[post-series-upgrade]:::machine
     end
     
@@ -84,14 +84,16 @@ classDef machine fill:#2965;
 * The only events that are guaranteed to always occur during Setup are `start` and `install`. The other events only happen if the charm happens to have (peer) relations at install time (e.g. if a charm that already is related to another gets scaled up) or it has storage. Same goes for leadership events. For that reason they are styled with dashed borders.
 * `config-changed` occurs between `start` and `install` regardless of whether any leadership (or relation) event fires.
 
-### Notes on the Maintenance phase
+### Notes on the Operation phase
 * `update-status` is fired automatically and periodically, at a configurable interval (default is 5m).
 * `leader-elected` and `leader-settings-changed` only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
-  * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for `*-relation-created` and `*-relation-broken`, as well as `*-relation-created` and `*-relation-changed`.
-  * Ownership: `*-relation-joined` and `*-relation-created` only fire on unit(s) that is(are) already in the relation and the unit(s) that is(are) joining respectively. Same goes for `*-relation-departed` and `*-relation-broken`
-* Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no maintenance event is fired.
-* A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event.
+  * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for `*-relation-created` and `*-relation-broken`, as well as `*-relation-created` and `*-relation-changed`.     
+  * Ownership: `*-relation-joined` and `*-relation-created` only fire on unit(s) that is(are) already in the relation and the unit(s) that is(are) joining respectively. Same goes for `*-relation-departed` and `*-relation-broken`.
+  * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X `*-relation-joined` events will be fired. When a unit leaves, all units will receive a `*-relation-departed` event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken.
+* Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
+* A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of `*-relation-changed` events can be fired at any time during operation, and they need not be preceded by a `*-relation-joined`
+* 
 
 
 ### Notes on the Teardown phase
