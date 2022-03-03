@@ -39,9 +39,9 @@ flowchart TD
     Teardown --> 
     End:::meta
 
-linkStyle 7 stroke:#fff,stroke-width:1px;
-linkStyle 8 stroke:#fff,stroke-width:1px;
-linkStyle 9 stroke:#fff,stroke-width:1px;
+linkStyle 7 stroke:#fff0,stroke-width:1px;
+linkStyle 8 stroke:#fff0,stroke-width:1px;
+linkStyle 9 stroke:#fff0,stroke-width:1px;
 
 classDef relationEvent fill:#f9f5;
 classDef storageEvent fill:#f995;
