@@ -89,12 +89,10 @@ classDef machine fill:#2965;
 * `leader-elected` and `leader-settings-changed` only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
   * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for `*-relation-created` and `*-relation-broken`, as well as `*-relation-created` and `*-relation-changed`.     
-  * Ownership: `*-relation-joined` and `*-relation-created` only fire on unit(s) that is(are) already in the relation and the unit(s) that is(are) joining respectively. Same goes for `*-relation-departed` and `*-relation-broken`.
+  * Ownership: `joined/departed` are unit-level events: they fire when an application has a (peer) relation and a new unit joins or leaves. All units (including the newly created or leaving unit), will receive the event. `created/broken` are application-level events, in that they fire when two applications are related or a relation is removed (e.g. via `juju remove-relation` or because an application is destroyed).
   * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X `*-relation-joined` events will be fired. When a unit leaves, all units will receive a `*-relation-departed` event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken.
 * Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
-* A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of `*-relation-changed` events can be fired at any time during operation, and they need not be preceded by a `*-relation-joined`
-* 
-
+* A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of `*-relation-changed` events can be fired at any time during operation, and they need not be preceded by a `*-relation-joined` event.
 
 ### Notes on the Teardown phase
 * Both relation and storage events are guaranteed to fire before `stop/remove` if the charm has storage/relations. Otherwise, only stop/remove will be fired.
