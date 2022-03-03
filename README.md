@@ -83,6 +83,7 @@ classDef machine fill:#2965;
 ### Notes on the Setup phase
 * The only events that are guaranteed to always occur during Setup are `start` and `install`. The other events only happen if the charm happens to have (peer) relations at install time (e.g. if a charm that already is related to another gets scaled up) or it has storage. Same goes for leadership events. For that reason they are styled with dashed borders.
 * `config-changed` occurs between `start` and `install` regardless of whether any leadership (or relation) event fires.
+* Any `*-relation-created` event can occur at Setup time, but if X is a peer relation, then `X-relation-created` can **only** occur at Setup, while for non-peer relations, they can occur also during Operation. The reason for this is that a peer relation cannot be created or destroyed 'manually' at arbitrary times, they either exist or not, and if they exist, then we know so from the start.
 
 ### Notes on the Operation phase
 * `update-status` is fired automatically and periodically, at a configurable interval (default is 5m).
@@ -95,7 +96,8 @@ classDef machine fill:#2965;
 * A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of `*-relation-changed` events can be fired at any time during operation, and they need not be preceded by a `*-relation-joined` event.
 
 ### Notes on the Teardown phase
-* Both relation and storage events are guaranteed to fire before `stop/remove` if the charm has storage/relations. Otherwise, only stop/remove will be fired.
+* Both relation and storage events are guaranteed to fire before `stop/remove` if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
+* `*-relation-broken` events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
 
 # Event semantics and data
 This document is only about the timing of the events; for the 'meaning' of the events, other sources are more appropriate; e.g. [juju-events](https://juju.is/docs/sdk/events).
