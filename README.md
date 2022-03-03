@@ -139,6 +139,7 @@ sequenceDiagram
     end
     rect rgb(150,40,150,.2)
         note right of Juju: juju add-unit applicationA -n1
+        note right of applicationA/1: applicationA is created now
         par
             Juju->>+applicationA/1: R-relation-created
             Juju->>+applicationA/1: R-relation-joined
