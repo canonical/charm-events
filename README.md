@@ -21,14 +21,14 @@ flowchart TD
         leader_elected_mant[leader-elected]:::leaderEvent --- 
         leader_settings_changed_mant[leader-settings-changed]:::leaderEvent
         relation_joined_mant["[*]-relation-joined"]:::relationEvent -.- relation_departed_mant["[*]-relation-departed"]:::relationEvent
-        relation_joined_mant --> relation_changed_mant[<*>-relation-changed]:::relationEvent 
+        relation_joined_mant --> relation_changed_mant["[*]-relation-changed"]:::relationEvent 
         relation_created_mant["[*]-relation-created"]:::relationEvent -.- relation_broken_mant["[*]-relation-broken"]:::relationEvent 
         storage_attached_mant["[*]-storage-attached"]:::storageEvent -.- storage_detached_mant["[*]-storage-detached"]:::storageEvent
     end
     
     subgraph Teardown
-        relation_broken_teard[<*>-relation-broken]:::optRelationEvent -->
-        storage_detached[<*>-storage-detached]:::optStorageEvent -->
+        relation_broken_teard["[*]-relation-broken"]:::optRelationEvent -->
+        storage_detached["[*]-storage-detached"]:::optStorageEvent -->
         stop -->
         remove
     end
@@ -56,7 +56,7 @@ classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
 ## Understanding the graph
 You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a operation phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
 
-The obvious omission from the graph is the `<*>-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
+The obvious omission from the graph is the `*-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
 
 `[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the opeartion phase. Summary below:
 
