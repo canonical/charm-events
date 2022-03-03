@@ -20,10 +20,10 @@ flowchart TD
         config_changed_mant[config-changed] 
         leader_elected_mant[leader-elected]:::leaderEvent --- 
         leader_settings_changed_mant[leader-settings-changed]:::leaderEvent
-        relation_joined_mant[<*>-relation-joined]:::relationEvent -.- relation_departed_mant[<*>-relation-departed]:::relationEvent
+        relation_joined_mant["[*]-relation-joined"]:::relationEvent -.- relation_departed_mant["[*]-relation-departed"]:::relationEvent
         relation_joined_mant --> relation_changed_mant[<*>-relation-changed]:::relationEvent 
-        relation_created_mant[<*>-relation-created]:::relationEvent -.- relation_broken_mant[<*>-relation-broken]:::relationEvent 
-        storage_attached_mant[<*>-storage-attached]:::storageEvent -.- storage_detached_mant[<*>-storage-detached]:::storageEvent
+        relation_created_mant["[*]-relation-created"]:::relationEvent -.- relation_broken_mant["[*]-relation-broken"]:::relationEvent 
+        storage_attached_mant["[*]-storage-attached"]:::storageEvent -.- storage_detached_mant["[*]-storage-detached"]:::storageEvent
     end
     
     subgraph Teardown
