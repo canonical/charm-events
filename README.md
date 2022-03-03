@@ -89,9 +89,9 @@ classDef machine fill:#2965;
 * `update-status` is fired automatically and periodically, at a configurable interval (default is 5m).
 * `leader-elected` and `leader-settings-changed` only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
-  * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for `*-relation-created` and `*-relation-broken`, as well as `*-relation-created` and `*-relation-changed`.     
-  * Ownership: `joined/departed` are unit-level events: they fire when an application has a (peer) relation and a new unit joins or leaves. All units (including the newly created or leaving unit), will receive the event. `created/broken` are application-level events, in that they fire when two applications are related or a relation is removed (e.g. via `juju remove-relation` or because an application is destroyed).
-  * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X `*-relation-joined` events will be fired. When a unit leaves, all units will receive a `*-relation-departed` event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken.
+  * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for `*-relation-created` and `*-relation-broken`, as well as `*-relation-created` and `*-relation-changed`.
+  * Ownership: `joined/departed` are unit-level events: they fire when an application has a (peer) relation and a new unit joins or leaves. All units (including the newly created or leaving unit), will receive the event. `created/broken` are relation-level events, in that they fire when two applications become related or a relation is removed (e.g. via `juju remove-relation` or because an application is destroyed).
+  * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X `*-relation-joined` events will be fired. When a unit leaves, all units will receive a `*-relation-departed` event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken. Find in appendix 1 a somewhat more elaborate example.
 * Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
 * A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of `*-relation-changed` events can be fired at any time during operation, and they need not be preceded by a `*-relation-joined` event.
 
@@ -99,6 +99,87 @@ classDef machine fill:#2965;
 * Both relation and storage events are guaranteed to fire before `stop/remove` if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
 * `*-relation-broken` events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
 
-# Event semantics and data
+## Event semantics and data
 This document is only about the timing of the events; for the 'meaning' of the events, other sources are more appropriate; e.g. [juju-events](https://juju.is/docs/sdk/events).
 For the data attached to an event, one should refer to the docstrings in the ops.charm.HookEvent subclass that the event you're expecting in your handler inherits from.
+
+# Appendices
+## Appendix 1: scenario example
+
+This is a representation of the relation events a deployment will receive in a simple scenario that goes as follows:
+* We start with two unrelated applications, `applicationA` and `applicationB`, with one unit each.
+* `applicationA` and `applicationB` become related via a relation called `R`.
+* `applicationA` is scaled up to 2 units.
+* `applicationA` is scaled down to 1 unit.
+* `applicationA` touches the `R` databag (e.g. during an `update-status` hook, or as a result of a `config-changed`, an action, a custom event...).
+* The relation `R` is removed.
+
+Note that many event sequences are marked as 'par' for *parallel*, which means that the events can be dispatched to the units arbitrarily interleaved.
+
+```mermaid
+sequenceDiagram
+    participant Juju
+    participant applicationA/0
+    participant applicationB/0
+    participant applicationA/1 
+    # find way to add applicationA/1 later...?
+
+    rect rgb(191, 223, 255)
+        note right of Juju: juju relate applicationA:R applicationB:R
+        note right of applicationA/1: applicationA does not exist yet
+        par 
+            Juju->>+applicationA/0: R-relation-created
+            Juju->>+applicationA/0: R-relation-joined
+            Juju->>+applicationA/0: R-relation-changed
+        and
+            Juju->>+applicationB/0: R-relation-created
+            Juju->>+applicationB/0: R-relation-joined
+            Juju->>+applicationB/0: R-relation-changed
+        end
+        rect rgb(150,40,150,.2)
+            note right of Juju: juju add-unit applicationA -n1
+            par
+                Juju->>+applicationA/1: R-relation-created
+                Juju->>+applicationA/1: R-relation-joined
+                Juju->>+applicationA/1: R-relation-changed
+            and
+                Juju->>+applicationB/0: R-relation-joined
+                Juju->>+applicationB/0: R-relation-changed
+            and
+                Juju->>+applicationA/0: R-relation-joined
+                Juju->>+applicationA/0: R-relation-changed
+            end
+        end
+        rect rgb(50,200,50,.2)
+            note right of Juju: juju remove-unit applicationA -n1
+            Juju->>+applicationA/1: R-relation-departed
+            Juju->>+applicationA/1: R-relation-broken
+            par
+                Juju->>+applicationB/0: R-relation-departed
+            and
+                Juju->>+applicationA/0: R-relation-departed
+            end
+        end
+        note right of applicationA/1: applicationA/1 does not exist anymore
+        rect rgb(50,20,50,.2)
+            note right of applicationA/0: applicationA/0 charm touches the R databag
+            applicationA/0 -->> Juju: [new data]
+            par
+                Juju->>+applicationA/0: R-relation-changed
+            and 
+                Juju->>+applicationB/0: R-relation-changed
+            end
+        end
+            rect rgb(250,220,100,.2)
+            note right of Juju: juju remove-relation applicationA:R applicationB:R
+            par
+                Juju->>+applicationA/0: R-relation-departed
+                Juju->>+applicationA/0: R-relation-broken
+            and
+                Juju->>+applicationB/0: R-relation-departed
+                Juju->>+applicationB/0: R-relation-broken
+            end
+        end
+
+    end
+```
