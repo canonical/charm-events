@@ -123,10 +123,10 @@ sequenceDiagram
     participant applicationB/0
     participant applicationA/1 
     # find way to add applicationA/1 later...?
+    note right of applicationA/1: applicationA does not exist yet
 
     rect rgb(191, 223, 255)
         note right of Juju: juju relate applicationA:R applicationB:R
-        note right of applicationA/1: applicationA does not exist yet
         par 
             Juju->>+applicationA/0: R-relation-created
             Juju->>+applicationA/0: R-relation-joined
@@ -136,50 +136,50 @@ sequenceDiagram
             Juju->>+applicationB/0: R-relation-joined
             Juju->>+applicationB/0: R-relation-changed
         end
-        rect rgb(150,40,150,.2)
-            note right of Juju: juju add-unit applicationA -n1
-            par
-                Juju->>+applicationA/1: R-relation-created
-                Juju->>+applicationA/1: R-relation-joined
-                Juju->>+applicationA/1: R-relation-changed
-            and
-                Juju->>+applicationB/0: R-relation-joined
-                Juju->>+applicationB/0: R-relation-changed
-            and
-                Juju->>+applicationA/0: R-relation-joined
-                Juju->>+applicationA/0: R-relation-changed
-            end
-        end
-        rect rgb(50,200,50,.2)
-            note right of Juju: juju remove-unit applicationA -n1
-            Juju->>+applicationA/1: R-relation-departed
-            Juju->>+applicationA/1: R-relation-broken
-            par
-                Juju->>+applicationB/0: R-relation-departed
-            and
-                Juju->>+applicationA/0: R-relation-departed
-            end
-        end
-        note right of applicationA/1: applicationA/1 does not exist anymore
-        rect rgb(50,20,50,.2)
-            note right of applicationA/0: applicationA/0 charm touches the R databag
-            applicationA/0 -->> Juju: [new data]
-            par
-                Juju->>+applicationA/0: R-relation-changed
-            and 
-                Juju->>+applicationB/0: R-relation-changed
-            end
-        end
-            rect rgb(250,220,100,.2)
-            note right of Juju: juju remove-relation applicationA:R applicationB:R
-            par
-                Juju->>+applicationA/0: R-relation-departed
-                Juju->>+applicationA/0: R-relation-broken
-            and
-                Juju->>+applicationB/0: R-relation-departed
-                Juju->>+applicationB/0: R-relation-broken
-            end
-        end
-
     end
+    rect rgb(150,40,150,.2)
+        note right of Juju: juju add-unit applicationA -n1
+        par
+            Juju->>+applicationA/1: R-relation-created
+            Juju->>+applicationA/1: R-relation-joined
+            Juju->>+applicationA/1: R-relation-changed
+        and
+            Juju->>+applicationB/0: R-relation-joined
+            Juju->>+applicationB/0: R-relation-changed
+        and
+            Juju->>+applicationA/0: R-relation-joined
+            Juju->>+applicationA/0: R-relation-changed
+        end
+    end
+    rect rgb(50,200,50,.2)
+        note right of Juju: juju remove-unit applicationA -n1
+        Juju->>+applicationA/1: R-relation-departed
+        Juju->>+applicationA/1: R-relation-broken
+        par
+            Juju->>+applicationB/0: R-relation-departed
+        and
+            Juju->>+applicationA/0: R-relation-departed
+        end
+    end
+    note right of applicationA/1: applicationA/1 does not exist anymore
+    rect rgb(50,20,50,.2)
+        note right of applicationA/0: applicationA/0 charm touches the R databag
+        applicationA/0 -->> Juju: [new data]
+        par
+            Juju->>+applicationA/0: R-relation-changed
+        and 
+            Juju->>+applicationB/0: R-relation-changed
+        end
+    end
+        rect rgb(250,220,100,.2)
+        note right of Juju: juju remove-relation applicationA:R applicationB:R
+        par
+            Juju->>+applicationA/0: R-relation-departed
+            Juju->>+applicationA/0: R-relation-broken
+        and
+            Juju->>+applicationB/0: R-relation-departed
+            Juju->>+applicationB/0: R-relation-broken
+        end
+    end
+
 ```
