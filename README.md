@@ -33,11 +33,11 @@ flowchart TD
         remove
     end
     
-    Start:::meta --> 
+    Start["(start)"]:::meta --> 
     Setup --> 
     Operation --> 
     Teardown --> 
-    End:::meta
+    End["(end)"]:::meta
 
 linkStyle 7 stroke:#fff0,stroke-width:1px;
 linkStyle 8 stroke:#fff0,stroke-width:1px;
@@ -53,10 +53,20 @@ classDef optStorageEvent fill:#f995,stroke-dasharray: 5 5;
 classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
 ```
 
-## Understanding the graph
-You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a operation phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
 
-The obvious omission from the graph is the `*-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
+### Legend
+* `(start)` and `(end)` are 'meta' nodes and represent the beginning and end of the lifecycle of a Charm/juju unit. All other nodes represent hooks (events) that can occur during said lifecycle.
+* Hard arrows represent strict temporal ordering which is enforced by the juju state machine and respected by the Operator Framework, which mediates between the juju controller and the Charm code.
+* Dotted arrows represent a 1:1 relationship between relation events, explained in more detail down in the Operation section.
+* The large yellow boxes represent broad phases in the lifecycle. You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a operation phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
+* The colors of the event nodes represent a logical but practically meaningless grouping of the events.
+  * green for leadership events
+  * red for storage events
+  * purple for relation events
+  * blue for generic lifecycle events   
+
+## Other events
+The obvious omission from the graph above is the `*-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
 
 `[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the opeartion phase. Summary below:
 
@@ -99,9 +109,19 @@ classDef machine fill:#2965;
 * Both relation and storage events are guaranteed to fire before `stop/remove` if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
 * `*-relation-broken` events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
 
+## Caveats
+* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get fired again by the operator framework *after* the next hook will fire. See Appendix 2 for a visual representation.
+* The events in the Operation phase can interleave in arbitrary ways. For this reason it's essential that hook handlers make *no assumptions* about each other -- each handler should check its preconditions independently and operate under the assumption that the relative ordering is totally arbitrary -- except relation events, which have some partial ordering as explained above.
+
+## Deprecation notices
+* `leader-settings-changed` is being deprecated; in a future release it will be gone.
+* `leader-deposed` is a juju hook that was planned but never actually implemented. You may see a WARNING mentioning it in the `juju debug-log` but you can ignore it.
+
+
 ## Event semantics and data
 This document is only about the timing of the events; for the 'meaning' of the events, other sources are more appropriate; e.g. [juju-events](https://juju.is/docs/sdk/events).
 For the data attached to an event, one should refer to the docstrings in the ops.charm.HookEvent subclass that the event you're expecting in your handler inherits from.
+
 
 # Appendices
 ## Appendix 1: scenario example
@@ -184,3 +204,20 @@ sequenceDiagram
     end
 
 ```
+
+## Appendix 2: deferring an event
+
+```mermaid
+sequenceDiagram
+    Juju->>Operator Framework: event1
+    note right of Operator Framework: event queue = []
+    Operator Framework->>+Charm: event1
+    Charm->>-Operator Framework: event1.defer()
+    note right of Operator Framework: event queue = [event 1] 
+    Juju->>Operator Framework: event2
+    Operator Framework->>+Charm: event1
+    note right of Operator Framework: event queue = []
+    Operator Framework->>+Charm: event2 
+```
+
+
