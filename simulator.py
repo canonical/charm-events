@@ -206,10 +206,40 @@ class CharmEventSimulator:
                  potential_relations: typing.Sequence[Relation] = (),
                  potential_storage_mounts: typing.Sequence[StorageMount] = (),
                  max_operation_length: int = 10,
+                 scale:int = 1,
                  platform: Platform = Platform.k8s):
+        """
+
+        :param is_leader: whether this unit is leader;
+            only has meaning if it has any relations
+        :param relations:
+            pre-existing relations that this charm joins as soon as it starts
+        :param containers:
+            containers in this charm
+        :param storage_mounts:
+            storage mounts this charm can use
+        :param potential_relations:
+            relations that this charm supports and could potentially
+            join during its lifetime as a consequence of human operation
+        :param potential_storage_mounts:
+            storage that this charm supports and could potentially
+            be added during its lifetime as a consequence of human operation
+        :param max_operation_length:
+            maximal duration of the operation phase
+        :param scale:
+            initial scale of this charm; how many units it consists of.
+            Must be >=1
+        :param platform:
+            k8s | lxd
+        """
 
         self.max_operation_length = max_operation_length
         self.is_leader = is_leader
+
+        if not scale >= 1:
+            raise ValueError('scale must be at least 1')
+
+        self.scale = scale
         self.containers = containers = tuple(containers)
 
         # initial relations and storage mounts
@@ -267,7 +297,7 @@ class CharmEventSimulator:
         }
 
         # at any point in time...
-        self.possible_actions = set(
+        self.possible_actions = possible_actions = set(
             # ...any storage we have might be detached
             [storage.detach for storage in storage_mounts] +
             # ...the databag of a relation might be touched by another charm
@@ -275,13 +305,16 @@ class CharmEventSimulator:
             # ...any relation we have might be removed
             [relation.destroy for relation in self._non_peer_relations] +
             # ...the user or another charm might change the config or scale +-
-            [Action.scale_down, Action.change_config,
-             Action.scale_up, Action.leadership_change] +
+            [Action.change_config, Action.scale_up, Action.leadership_change] +
             # ... any potential relation can be actualized
             [relation.create for relation in potential_relations] +
             # ... any potential storage can be attached
             [storage.attach for storage in potential_storage_mounts]
         )
+
+        if scale > 1:
+            possible_actions.add(Action.scale_down)
+
         self.phase = None
         self.scenario = {
             Phase.setup: [],
@@ -509,6 +542,10 @@ class CharmEventSimulator:
                     if not relation.is_joined:
                         continue
 
+                    self.scale += 1
+                    # we can definitely scale down now
+                    self.possible_actions.add(Action.scale_down)
+
                     # we don't recurse on _exec because it's messy
                     self._queue(relation.joined, allow=())
                     self._queue(relation.changed, allow=())
@@ -517,6 +554,11 @@ class CharmEventSimulator:
                 for relation in self.relations:
                     if not relation.is_joined:
                         continue
+
+                    if self.scale == 1:
+                        # can't scale down any further
+                        consume = True
+
                     self._queue(relation.departed)
 
             if name == 'leadership_change':
