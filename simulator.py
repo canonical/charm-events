@@ -334,7 +334,11 @@ class CharmEventSimulator:
         }
 
     def clear(self):
-        self.scenario = []
+        self.scenario = {
+            Phase.setup: [],
+            Phase.operation: [],
+            Phase.teardown: [],
+        }
 
     def add_relation(self, *relation: Relation):
         self.relations += relation
