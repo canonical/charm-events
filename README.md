@@ -110,7 +110,7 @@ classDef machine fill:#2965;
 * `*-relation-broken` events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
 
 ## Caveats
-* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get fired again by the operator framework *before* the next hook will fire. See Appendix 2 for a visual representation. What this means in practice is that deferring an event can and will not break the temporal ordering of the events as outlined in this graph; `defer()` will delay an event, but not force it to occur before or after some other event.
+* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get flushed by the operator framework as soon as the next event comes in, and *before* firing that new event in turn. See Appendix 2 for a visual representation. What this means in practice is that deferring an event can break the temporal ordering of the events as outlined in this graph; `defer()`ring an event twice will break the ordering guarantees we outlined here.
 * The events in the Operation phase can interleave in arbitrary ways. For this reason it's essential that hook handlers make *no assumptions* about each other -- each handler should check its preconditions independently and operate under the assumption that the relative ordering is totally arbitrary -- except relation events, which have some partial ordering as explained above.
 
 ## Deprecation notices
@@ -207,6 +207,26 @@ sequenceDiagram
 
 ## Appendix 2: deferring an event
 
+This is the 'normal' way of using `defer()`: an event `event1` comes in but we are not ready to process it; we `defer()` it; when `event2` comes in, the OF will first flush the queue and fire `event1`, then fire `event2`. The ordering is preserved: `event1` is consumed before `event2` by the charm.
+
+```mermaid
+sequenceDiagram
+    Juju->>Operator Framework: event1
+    note right of Operator Framework: event queue = []
+    Operator Framework->>+Charm: event1
+    Charm->>-Operator Framework: event1.defer()
+    note right of Operator Framework: event queue = [event1] 
+    Juju->>Operator Framework: event2
+    Operator Framework->>+Charm: event1
+    note right of Operator Framework: event queue = []
+    note right of Charm: consume event1
+    Operator Framework->>+Charm: event2
+    note right of Charm: consume event2
+```
+
+Suppose now that the charm defers `event1` again; then `event2` will be processed by the charm before `event1` is. `event1` will only be fired again once another event, `event3`, comes in in turn.
+The result is that the events are consumed in the order: `2-1-3`. Beware.
+
 ```mermaid
 sequenceDiagram
     Juju->>Operator Framework: event1
@@ -217,7 +237,15 @@ sequenceDiagram
     Juju->>Operator Framework: event2
     Operator Framework->>+Charm: event1
     note right of Operator Framework: event queue = []
+    Charm->>-Operator Framework: event1.defer()
+    note right of Operator Framework: event queue = [event 1] 
     Operator Framework->>+Charm: event2 
+    note right of Charm: consume event2
+    Juju->>Operator Framework: event3
+    Operator Framework->>+Charm: event1
+    note right of Operator Framework: event queue = []
+    note right of Charm: consume event1
+    Operator Framework->>+Charm: event3 
+    note right of Charm: consume event3
 ```
-
 
