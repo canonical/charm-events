@@ -20,8 +20,11 @@ event sequences for arbitrary charms in accordance with The Graph.
 # - event.defer()
 # - ensure that pebble-ready random inserts don't come between
 #   relation-joined -> relation-changed
+# - [pre/post]-series-upgrade
 # - early exit from operation phase based on... ?
 # - unhappy path testing ?
+# - also support actions during setup/teardown?
+
 
 import logging
 import random
@@ -32,6 +35,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
+logging.basicConfig(level='INFO')
 
 
 @dataclass
@@ -208,12 +212,12 @@ class CharmEventSimulator:
     def __init__(self,
                  is_leader=True,
                  relations: typing.Sequence[Relation] = (),
-                 containers: typing.Sequence[Container] = (),
+                 containers: typing.Sequence[Container] = (Container('workload'), ),
                  storage_mounts: typing.Sequence[StorageMount] = (),
                  potential_relations: typing.Sequence[Relation] = (),
                  potential_storage_mounts: typing.Sequence[StorageMount] = (),
                  max_operation_length: int = 10,
-                 scale:int = 1,
+                 scale: int = 1,
                  platform: Platform = Platform.k8s):
         """
 
@@ -460,6 +464,7 @@ class CharmEventSimulator:
 
     def _exec(self, action: Action, consume=True):
         logger.info(f'processing {action}')
+        self.scenario[self.phase].append(action)
 
         subject = action.subject
         action_subj_type = type(subject)
@@ -547,6 +552,10 @@ class CharmEventSimulator:
                 # fire a relation-joined for all relations
                 for relation in self.relations:
                     if not relation.is_joined:
+                        logger.info(
+                            f'{relation} not joined: scale+ will not '
+                            f'trigger a relation-joined'
+                        )
                         continue
 
                     self.scale += 1
@@ -556,10 +565,16 @@ class CharmEventSimulator:
                     # we don't recurse on _exec because it's messy
                     self._queue(relation.joined, allow=())
                     self._queue(relation.changed, allow=())
+                else:
+                    logger.info('no relations: scale+ will trigger no events')
 
             if name == 'scale-':
                 for relation in self.relations:
                     if not relation.is_joined:
+                        logger.info(
+                            f'{relation} not joined: scale- will not '
+                            f'trigger a relation-joined'
+                        )
                         continue
 
                     if self.scale == 1:
@@ -567,6 +582,8 @@ class CharmEventSimulator:
                         consume = True
 
                     self._queue(relation.departed)
+                else:
+                    logger.info('no relations: scale- will trigger no events')
 
             if name == 'leadership_change':
                 if self.is_leader:
@@ -592,15 +609,31 @@ class CharmEventSimulator:
         for phase, events in self.scenario.items():
             print(f'PHASE {phase}:')
             for event in events:
-                print(f'    > {event}')
+                if isinstance(event, Event):
+                    print(f'    Event :: {event.name}')
+                else:  # Action
+                    event: Action
+                    subj = getattr(event.subject, "name", "")
+                    print(f'    Action :: {event.source} --> {event.name!r}'
+                          f'{"(%s)"%subj if subj else ""}')
             print()
         print('end.')
 
 
 if __name__ == '__main__':
-    s = CharmEventSimulator(storage_mounts=[StorageMount('storage1')],
-                            relations=[Relation('http'),
-                                       Relation('replicas', is_peer=True)]
-                            )
+    s = CharmEventSimulator(
+        storage_mounts=[
+            StorageMount('storage1')],
+        relations=[
+            Relation('http'),
+            Relation('replicas', is_peer=True)
+        ],
+        potential_relations=[
+            Relation('mongo')
+        ],
+        potential_storage_mounts=[
+            StorageMount('ephemeral1')
+        ]
+    )
     s.run()
     s.pprint()
