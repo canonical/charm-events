@@ -621,7 +621,7 @@ class CharmEventSimulator:
 
 
 if __name__ == '__main__':
-    s = CharmEventSimulator(
+    sim = CharmEventSimulator(
         storage_mounts=[
             StorageMount('storage1')],
         relations=[
@@ -635,5 +635,5 @@ if __name__ == '__main__':
             StorageMount('ephemeral1')
         ]
     )
-    s.run()
-    s.pprint()
+    sim.run()
+    sim.pprint()
