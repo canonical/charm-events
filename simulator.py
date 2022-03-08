@@ -16,6 +16,13 @@
 event sequences for arbitrary charms in accordance with The Graph.
 """
 
+# TODO:
+# - event.defer()
+# - ensure that pebble-ready random inserts don't come between
+#   relation-joined -> relation-changed
+# - early exit from operation phase based on... ?
+# - unhappy path testing ?
+
 import logging
 import random
 import typing
