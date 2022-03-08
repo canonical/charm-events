@@ -110,7 +110,7 @@ classDef machine fill:#2965;
 * `*-relation-broken` events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
 
 ## Caveats
-* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get fired again by the operator framework *before* the next hook will fire. See Appendix 2 for a visual representation.
+* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get fired again by the operator framework *before* the next hook will fire. See Appendix 2 for a visual representation. What this means in practice is that deferring an event can and will not break the temporal ordering of the events as outlined in this graph; `defer()` will delay an event, but not force it to occur before or after some other event.
 * The events in the Operation phase can interleave in arbitrary ways. For this reason it's essential that hook handlers make *no assumptions* about each other -- each handler should check its preconditions independently and operate under the assumption that the relative ordering is totally arbitrary -- except relation events, which have some partial ordering as explained above.
 
 ## Deprecation notices
