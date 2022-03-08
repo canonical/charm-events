@@ -614,7 +614,7 @@ class CharmEventSimulator:
             print(f'PHASE {phase}:')
             for event in events:
                 if isinstance(event, Event):
-                    print(f'    Event :: {event.name}')
+                    print(f'    Event  :: {event.name}')
                 else:  # Action
                     event: Action
                     subj = getattr(event.subject, "name", "")
