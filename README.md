@@ -68,7 +68,7 @@ classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
 ## Other events
 The obvious omission from the graph above is the `*-pebble-ready` event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
 
-`[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the opeartion phase. Summary below:
+`[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the operation phase. Summary below:
 
 ```mermaid
 flowchart TD
