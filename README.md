@@ -1,5 +1,17 @@
-This is a temporary repository to work on the charm events graph while we find a place for it in the existing documentation or a juju repo.
-It also includes some made-up notes to understanding the graph.
+[note]This is a temporary repository to work on the charm events graph while we find a place for it in the existing documentation or a juju repo.
+It also includes some made-up notes to understanding the graph.[/note]
+
+This document is about the lifecycle of a charm, specifically the juju events that are used to keep track of it. These events, or 'hooks' to use some old terminology, are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the juju model. 
+
+It is common wisdom that event ordering should not be generally relied upon when coding a charm, to ensure resilience. It can be however useful to understand the logic behind the timing of events, so as to avoid common mistakes and have a better picture of what is happening in your charm. In this document we'll learn how:
+
+* A charm's lifecycle can be seen to consist of three **phases**, each one with characteristic events and sequences thereof. The fuzziest of the three being the Operation phase, where pretty much anything can happen short of setup events.
+* Not all events can be reliably be assumed to occur in specific temporal orders, but some can.
+
+In this document we will *not* learn:
+
+* What each event means or is typically used to represent about a workload status. For that see [the sdk docs](https://juju.is/docs/sdk/events). 
+
 
 # The Graph
 ```mermaid
