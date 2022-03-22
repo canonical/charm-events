@@ -11,7 +11,7 @@ It is common wisdom that event ordering should not be generally relied upon when
 In this document we will *not* learn:
 
 * What each event means or is typically used to represent about a workload status. For that see [the sdk docs](https://juju.is/docs/sdk/events). 
-
+* What event cascades are triggered by a human administrator running commands through the juju cli. For that see [this other doc](https://discourse.charmhub.io/t/core-lifecycle-events/4455/3).
 
 # The Graph
 ```mermaid
