@@ -17,13 +17,15 @@ event sequences for arbitrary charms in accordance with The Graph.
 """
 
 # TODO:
-# - event.defer()
+# - event.defer() chance per type
 # - ensure that pebble-ready random inserts don't come between
 #   relation-joined -> relation-changed
 # - [pre/post]-series-upgrade
 # - early exit from operation phase based on... ?
 # - unhappy path testing ?
 # - also support actions during setup/teardown?
+# - XXL: add a Validator class to check whether a given event sequence matches
+#   the model
 
 
 import logging
@@ -66,19 +68,19 @@ class Action:
 
     # generic actions that the user might perform at any time
     @classproperty
-    def change_config():
+    def change_config():  # noqa
         return Action(None, 'config-change', Source.user)
 
     @classproperty
-    def scale_up():
+    def scale_up():  # noqa
         return Action(None, 'scale+', Source.user)
 
     @classproperty
-    def scale_down():
+    def scale_down():  # noqa
         return Action(None, 'scale-', Source.user)
 
     @classproperty
-    def leadership_change():
+    def leadership_change():  # noqa
         """The act of changing leadership."""
         return Action(None, 'leadership_change', Source.random())
 
@@ -205,6 +207,9 @@ def random_insert(lst: list, item: typing.Any):
     """Insert item at random index in list."""
     # fixme: this might come between relation-joined -> relation-changed which
     #   should not happen
+    if not lst:
+        lst.append(item)
+        return
     lst.insert(random.randrange(0, len(lst)), item)
 
 
@@ -217,6 +222,7 @@ class CharmEventSimulator:
                  potential_relations: typing.Sequence[Relation] = (),
                  potential_storage_mounts: typing.Sequence[StorageMount] = (),
                  max_operation_length: int = 10,
+                 defer_chance: float = 0.,
                  scale: int = 1,
                  platform: Platform = Platform.k8s):
         """
@@ -237,19 +243,23 @@ class CharmEventSimulator:
             be added during its lifetime as a consequence of human operation
         :param max_operation_length:
             maximal duration of the operation phase
+        :param defer_chance:
+            chance that an event will be deferred
         :param scale:
             initial scale of this charm; how many units it consists of.
             Must be >=1
         :param platform:
             k8s | lxd
         """
-
-        self.max_operation_length = max_operation_length
-        self.is_leader = is_leader
-
         if not scale >= 1:
             raise ValueError('scale must be at least 1')
 
+        if not 0 <= defer_chance <= 1:
+            raise ValueError('defer_chance must be in [0, 1]')
+
+        self.max_operation_length = max_operation_length
+        self.is_leader = is_leader
+        self.defer_chance = defer_chance
         self.scale = scale
         self.containers = containers = tuple(containers)
 
@@ -327,6 +337,7 @@ class CharmEventSimulator:
             possible_actions.add(Action.scale_down)
 
         self.phase = None
+        self.deferred_events = []
         self.scenario = {
             Phase.setup: [],
             Phase.operation: [],
@@ -435,15 +446,15 @@ class CharmEventSimulator:
         self._queue(remove)
 
     def _queue(self,
-               event: Event,
+               *event: Event,
                allow: typing.Sequence[str] = None,
                disallow: typing.Sequence[str] = None):
+
         allow = (pebble_ready, update_status) if allow is None else allow
         disallow = disallow or ()
 
-        sequence = [event]
+        sequence = list(event)
         phase = self.phase
-        scenario = self.scenario[phase]
         for random_event in allow:
             if random_event in disallow:
                 continue
@@ -464,7 +475,18 @@ class CharmEventSimulator:
                     random_insert(sequence, Event(random_event))
 
         logger.info(f'queued {event}')
-        scenario.extend(sequence)
+        for event_ in sequence:
+            self._add_to_scenario(event_)
+
+    def _add_to_scenario(self, event: Event):
+        """Insert event in queue."""
+        self._queue(*self.deferred_events)  # which might defer some more.
+        self.deferred_events = []
+
+        if random.random() < self.defer_chance:
+            self.deferred_events.append(event)
+        else:
+            self.scenario[self.phase].append(event)
 
     def _exec(self, action: Action, consume=True):
         logger.info(f'processing {action}')
@@ -632,12 +654,12 @@ if __name__ == '__main__':
             Relation('http'),
             Relation('replicas', is_peer=True)
         ],
-        potential_relations=[
-            Relation('mongo')
-        ],
-        potential_storage_mounts=[
-            StorageMount('ephemeral1')
-        ]
+        # potential_relations=[
+        #     Relation('mongo')
+        # ],
+        # potential_storage_mounts=[
+        #     StorageMount('ephemeral1')
+        # ]
     )
     sim.run()
     sim.pprint()
