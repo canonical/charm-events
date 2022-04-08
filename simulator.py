@@ -37,7 +37,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
-logging.basicConfig(level='INFO')
+# logging.basicConfig(level='INFO')
 
 
 @dataclass
@@ -654,12 +654,12 @@ if __name__ == '__main__':
             Relation('http'),
             Relation('replicas', is_peer=True)
         ],
-        # potential_relations=[
-        #     Relation('mongo')
-        # ],
-        # potential_storage_mounts=[
-        #     StorageMount('ephemeral1')
-        # ]
+        potential_relations=[
+            Relation('mongo')
+        ],
+        potential_storage_mounts=[
+            StorageMount('ephemeral1')
+        ]
     )
     sim.run()
     sim.pprint()
