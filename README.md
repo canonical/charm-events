@@ -274,6 +274,7 @@ sequenceDiagram
 [`*-pebble-ready`]: https://juju.is/docs/sdk/events#heading--pebble-ready
 [`config-changed`]: https://juju.is/docs/sdk/events#heading--config-changed
 [`update-status`]: https://juju.is/docs/sdk/events#heading--update-status
+[`collect-metrics`]: https://discourse.charmhub.io/t/charm-hooks/1040#heading--collect-metrics
 [`leader-settings-changed`]: https://discourse.charmhub.io/t/charm-hooks/1040
 [`upgrade-charm`]: https://juju.is/docs/sdk/events#heading--upgrade-charm
 [`*-relation-created`]: https://juju.is/docs/sdk/relations#heading--relation-events
