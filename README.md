@@ -1,5 +1,5 @@
-[note]This is a temporary repository to work on the charm events graph while we find a place for it in the existing documentation or a juju repo.
-It also includes some made-up notes to understanding the graph.[/note]
+[note]This is a temporary repository to work on the charm events graph while Mermaid support for charmhub lingers in the pipeline.
+The reference document is https://discourse.charmhub.io/t/a-charms-life/5938; that takes precedence whenever discrepancies may arise.[/note]
 
 This document is about the lifecycle of a charm, specifically the juju events that are used to keep track of it. These events, or 'hooks' to use some old terminology, are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the juju model. 
 
