@@ -30,6 +30,7 @@ flowchart TD
         upgrade_charm[upgrade-charm] --- 
         update_status[update-status] ---
         config_changed_mant[config-changed] 
+        collect_metrics[collect-metrics] ---
         leader_elected_mant[leader-elected]:::leaderEvent --- 
         leader_settings_changed_mant[leader-settings-changed]:::leaderEvent
         relation_joined_mant["[*]-relation-joined"]:::relationEvent -.- relation_departed_mant["[*]-relation-departed"]:::relationEvent
@@ -109,6 +110,7 @@ classDef machine fill:#2965;
 
 ### Notes on the Operation phase
 * [`update-status`] is fired automatically and periodically, at a configurable regular interval (default is 5m).
+* [`collect-metrics`] is fired automatically and periodically, at a regular interval of 5m, AND whenever the user runs `juju collect-metrics`.
 * [`leader-elected`] and [`leader-settings-changed`] only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
   * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for [`*-relation-created`] and [`*-relation-broken`], as well as [`*-relation-created`] and [`*-relation-changed`].
