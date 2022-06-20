@@ -1,5 +1,5 @@
-[note]This is a temporary repository to work on the charm events graph while we find a place for it in the existing documentation or a juju repo.
-It also includes some made-up notes to understanding the graph.[/note]
+[note]This is a temporary repository to work on the charm events graph while Mermaid support for charmhub lingers in the pipeline.
+The reference document is https://discourse.charmhub.io/t/a-charms-life/5938; that takes precedence whenever discrepancies may arise.[/note]
 
 This document is about the lifecycle of a charm, specifically the juju events that are used to keep track of it. These events, or 'hooks' to use some old terminology, are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the juju model. 
 
@@ -30,6 +30,7 @@ flowchart TD
         upgrade_charm[upgrade-charm] --- 
         update_status[update-status] ---
         config_changed_mant[config-changed] 
+        collect_metrics[collect-metrics] ---
         leader_elected_mant[leader-elected]:::leaderEvent --- 
         leader_settings_changed_mant[leader-settings-changed]:::leaderEvent
         relation_joined_mant["[*]-relation-joined"]:::relationEvent -.- relation_departed_mant["[*]-relation-departed"]:::relationEvent
@@ -109,6 +110,7 @@ classDef machine fill:#2965;
 
 ### Notes on the Operation phase
 * [`update-status`] is fired automatically and periodically, at a configurable regular interval (default is 5m).
+* [`collect-metrics`] is fired automatically and periodically, at a regular interval of 5m, AND whenever the user runs `juju collect-metrics`.
 * [`leader-elected`] and [`leader-settings-changed`] only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
   * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for [`*-relation-created`] and [`*-relation-broken`], as well as [`*-relation-created`] and [`*-relation-changed`].
@@ -272,6 +274,7 @@ sequenceDiagram
 [`*-pebble-ready`]: https://juju.is/docs/sdk/events#heading--pebble-ready
 [`config-changed`]: https://juju.is/docs/sdk/events#heading--config-changed
 [`update-status`]: https://juju.is/docs/sdk/events#heading--update-status
+[`collect-metrics`]: https://discourse.charmhub.io/t/charm-hooks/1040#heading--collect-metrics
 [`leader-settings-changed`]: https://discourse.charmhub.io/t/charm-hooks/1040
 [`upgrade-charm`]: https://juju.is/docs/sdk/events#heading--upgrade-charm
 [`*-relation-created`]: https://juju.is/docs/sdk/relations#heading--relation-events
