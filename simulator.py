@@ -37,13 +37,21 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
-# logging.basicConfig(level='INFO')
+
 
 
 @dataclass
 class Event:
     name: str
+    context: typing.Dict[str, str] = None
 
+    def __hash__(self):
+        ctx_hash = hash(tuple(self.context.items())) if self.context else 0
+        return hash((self.name, ctx_hash))
+
+    def __str__(self):
+        ctx = "" if not self.context else f"({', '.join('='.join(pair) for pair in self.context.items())})"
+        return f"{self.name}{ctx}"
 
 class Source(Enum):
     user = 'user'
@@ -86,6 +94,27 @@ class Action:
 
     def __hash__(self):
         return hash(((self.subject or 0), self.name, self.source))
+
+
+@dataclass
+class Secret:
+    identifier: str
+
+    @property
+    def changed(self) -> Event:
+        return Event("secret_changed", context={"JUJU_SECRET_ID": self.identifier})
+
+    @property
+    def rotate(self) -> Event:
+        return Event("secret_rotate", context={"JUJU_SECRET_ID": self.identifier})
+
+    @property
+    def expire(self) -> Event:
+        return Event("secret_expire", context={"JUJU_SECRET_ID": self.identifier})
+
+    @property
+    def removed(self) -> Event:
+        return Event("secret_removed", context={"JUJU_SECRET_ID": self.identifier})
 
 
 @dataclass
@@ -217,10 +246,12 @@ class CharmEventSimulator:
     def __init__(self,
                  is_leader=True,
                  relations: typing.Sequence[Relation] = (),
-                 containers: typing.Sequence[Container] = (Container('workload'), ),
+                 containers: typing.Sequence[Container] = (Container('workload'),),
                  storage_mounts: typing.Sequence[StorageMount] = (),
                  potential_relations: typing.Sequence[Relation] = (),
                  potential_storage_mounts: typing.Sequence[StorageMount] = (),
+                 own_secrets: typing.Sequence[Secret] = (),
+                 observed_secrets: typing.Sequence[Secret] = (),
                  max_operation_length: int = 10,
                  defer_chance: float = 0.,
                  scale: int = 1,
@@ -241,6 +272,10 @@ class CharmEventSimulator:
         :param potential_storage_mounts:
             storage that this charm supports and could potentially
             be added during its lifetime as a consequence of human operation
+        :param own_secrets:
+            secrets that this charm may or may not create throughout its lifecycle
+        :param observed_secrets:
+            secrets that this charm may or may not observe throughout its lifecycle
         :param max_operation_length:
             maximal duration of the operation phase
         :param defer_chance:
@@ -266,6 +301,10 @@ class CharmEventSimulator:
         # initial relations and storage mounts
         self.relations = relations = tuple(relations)
         self.storage_mounts = storage_mounts = tuple(storage_mounts)
+
+        # secrets that we may have to deal with throughout the lifecycle
+        self.own_secrets = own_secrets = tuple(own_secrets)
+        self.observed_secrets = observed_secrets = tuple(observed_secrets)
 
         # relations and storage mounts that we aren't born with but might be
         #   added during my lifetime
@@ -300,8 +339,7 @@ class CharmEventSimulator:
 
         # chance that <event> will occur before/after
         #   any other event in <phase>
-        #   update_status can be tweaked here to simulate 'how long'
-        #   will a phase last.
+        #   update_status can be tweaked here to simulate 'how long' a phase will last.
         self._event_chances = {
             Phase.setup: {
                 pebble_ready: .2,
@@ -309,7 +347,22 @@ class CharmEventSimulator:
             },
             Phase.operation: {
                 pebble_ready: .05,
-                update_status: .1
+                update_status: .1,
+                **{
+                    **{
+                        # ... any secret we own could need a rotation
+                        secret.rotate: .01 for secret in own_secrets
+                    }, **{
+                        # ... any secret we own could expire
+                        secret.expire: .01 for secret in own_secrets
+                    }, **{
+                        # ... any secret we observe could have a new revision
+                        secret.changed: .03 for secret in observed_secrets
+                    }, **{
+                        # ... any secret we observe could be removed
+                        secret.removed: .01 for secret in observed_secrets
+                    }
+                }
             },
             Phase.teardown: {
                 pebble_ready: .01,
@@ -450,16 +503,18 @@ class CharmEventSimulator:
                allow: typing.Sequence[str] = None,
                disallow: typing.Sequence[str] = None):
 
-        allow = (pebble_ready, update_status) if allow is None else allow
+        phase = self.phase
+        possible_events = self._event_chances[phase]
+        allow = tuple(possible_events) if allow is None else allow
         disallow = disallow or ()
 
         sequence = list(event)
-        phase = self.phase
+
         for random_event in allow:
             if random_event in disallow:
                 continue
 
-            chance = self._event_chances[phase][random_event]
+            chance = possible_events[random_event]
             if chance and random.random() < chance:
                 logger.info(
                     f'chance ({chance}) inserted {random_event} >> {phase}'
@@ -636,12 +691,12 @@ class CharmEventSimulator:
             print(f'PHASE {phase}:')
             for event in events:
                 if isinstance(event, Event):
-                    print(f'    Event  :: {event.name}')
+                    print(f'    Event  :: {event}')
                 else:  # Action
                     event: Action
                     subj = getattr(event.subject, "name", "")
                     print(f'    Action :: {event.source} --> {event.name!r}'
-                          f'{"(%s)"%subj if subj else ""}')
+                          f'{"(%s)" % subj if subj else ""}')
             print()
         print('end.')
 
@@ -656,6 +711,12 @@ if __name__ == '__main__':
         ],
         potential_relations=[
             Relation('mongo')
+        ],
+        own_secrets=[
+            Secret('secret:123'),
+        ],
+        observed_secrets=[
+            Secret('secret:456')
         ],
         potential_storage_mounts=[
             StorageMount('ephemeral1')

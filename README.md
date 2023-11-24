@@ -37,6 +37,10 @@ flowchart TD
         relation_joined_mant --> relation_changed_mant["[*]-relation-changed"]:::relationEvent 
         relation_created_mant["[*]-relation-created"]:::relationEvent -.- relation_broken_mant["[*]-relation-broken"]:::relationEvent 
         storage_attached_mant["[*]-storage-attached"]:::storageEvent -.- storage_detached_mant["[*]-storage-detached"]:::storageEvent
+        secret_changed["secret-changed"]:::secretEvent ---
+        secret_rotate["secret-rotate"]:::secretEvent ---
+        secret_expire["secret-expire"]:::secretEvent ---
+        secret_removed["secret-removed"]:::secretEvent 
     end
     
     subgraph Teardown
@@ -55,8 +59,12 @@ flowchart TD
 linkStyle 7 stroke:#fff0,stroke-width:1px;
 linkStyle 8 stroke:#fff0,stroke-width:1px;
 linkStyle 9 stroke:#fff0,stroke-width:1px;
+linkStyle 15 stroke:#fff0,stroke-width:1px;
+linkStyle 16 stroke:#fff0,stroke-width:1px;
+linkStyle 17 stroke:#fff0,stroke-width:1px;
 
 classDef relationEvent fill:#f9f5;
+classDef secretEvent fill:#f588;
 classDef storageEvent fill:#f995;
 classDef leaderEvent fill:#5f55;
 classDef meta fill:#1112,stroke-width:3px;
@@ -119,6 +127,7 @@ classDef machine fill:#2965;
 * Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
 * A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of [`*-relation-changed`] events can be fired at any time during operation, and they need not be preceded by a [`*-relation-joined`] event.
 * There are more temporal orderings than the one displayed here; event chains can be initiated by human operation as detailed [in the sdk docs](https://juju.is/docs/sdk/events) and [the leadership docs](https://juju.is/docs/sdk/leadership). For example, it is guaranteed that a [`leader-elected`] is always followed by a [`settings-changed`], and that if you remove the leader unit, you should get [`*-relation-departed`] and a [`leader-settings-changed`] on the remaining units (although no specific ordering can be guaranteed [cfr this bug...](https://bugs.launchpad.net/juju/+bug/1964582)). 
+* Secret events only occur if your charm uses secrets.
 
 ### Notes on the Teardown phase
 * Both relation and storage events are guaranteed to fire before [`stop`]/[`remove`] if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
