@@ -100,7 +100,7 @@ flowchart TD
         subgraph Kubernetes[Only on Kubernetes]
             pebble_ready["[*]-pebble-ready"]:::kubevent
             pebble_custom_notice["[*]-pebble-custom-notice"]:::kubevent
-            pebble_change_updated["[*]-pebble-change-update"]::kubevent
+            pebble_change_updated["[*]-pebble-change-update"]:::kubevent
         end
     end
     
