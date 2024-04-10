@@ -27,19 +27,30 @@ flowchart TD
     end
 
     subgraph Operation
-        upgrade_charm[upgrade-charm] --- 
-        update_status[update-status] ---
-        config_changed_mant[config-changed] 
-        collect_metrics[collect-metrics] ---
-        leader_elected_mant[leader-elected]:::leaderEvent --- 
+        workload_events_mant(["`[workload events] 
+            (k8s only)`"]):::kubernetesEvent ~~~
+        pre_series_upgrade_mant[["`pre-series-upgrade 
+            (lxd only)`"]]:::lxdEvent --> 
+        post_series_upgrade_mant[["`post-series-upgrade 
+            (lxd only)`"]]:::lxdEvent
+
+
+        update_status[update-status] ~~~
+        upgrade_charm[upgrade-charm] --> config_changed_mant[config-changed]
+
+        collect_metrics[collect-metrics] ~~~
+        leader_elected_mant[leader-elected]:::leaderEvent ~~~ 
         leader_settings_changed_mant[leader-settings-changed]:::leaderEvent
+
         relation_joined_mant["[*]-relation-joined"]:::relationEvent -.- relation_departed_mant["[*]-relation-departed"]:::relationEvent
         relation_joined_mant --> relation_changed_mant["[*]-relation-changed"]:::relationEvent 
-        relation_created_mant["[*]-relation-created"]:::relationEvent -.- relation_broken_mant["[*]-relation-broken"]:::relationEvent 
+
+        relation_created_mant["[*]-relation-created"]:::relationEvent -.- relation_broken_mant["[*]-relation-broken"]:::relationEvent ~~~
         storage_attached_mant["[*]-storage-attached"]:::storageEvent -.- storage_detached_mant["[*]-storage-detached"]:::storageEvent
-        secret_changed["secret-changed"]:::secretEvent ---
-        secret_rotate["secret-rotate"]:::secretEvent ---
-        secret_expire["secret-expire"]:::secretEvent ---
+        
+        secret_changed["secret-changed"]:::secretEvent ~~~
+        secret_rotate["secret-rotate"]:::secretEvent ~~~
+        secret_expire["secret-expire"]:::secretEvent ~~~
         secret_removed["secret-removed"]:::secretEvent 
     end
     
@@ -56,22 +67,19 @@ flowchart TD
     Teardown --> 
     End["(end)"]:::meta
 
-linkStyle 7 stroke:#fff0,stroke-width:1px;
-linkStyle 8 stroke:#fff0,stroke-width:1px;
-linkStyle 9 stroke:#fff0,stroke-width:1px;
-linkStyle 15 stroke:#fff0,stroke-width:1px;
-linkStyle 16 stroke:#fff0,stroke-width:1px;
-linkStyle 17 stroke:#fff0,stroke-width:1px;
-
 classDef relationEvent fill:#f9f5;
 classDef secretEvent fill:#f588;
 classDef storageEvent fill:#f995;
 classDef leaderEvent fill:#5f55;
+classDef workloadEvent fill:#faa1,stroke-dasharray: 5 5;
 classDef meta fill:#1112,stroke-width:3px;
 
 classDef optRelationEvent fill:#f9f5,stroke-dasharray: 5 5;
 classDef optStorageEvent fill:#f995,stroke-dasharray: 5 5;
 classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
+
+classDef kubernetesEvent fill:#77f5;
+classDef lxdEvent fill:#2965;
 ```
 
 
@@ -86,30 +94,16 @@ classDef optLeaderEvent fill:#5f55,stroke-dasharray: 5 5;
   * purple for relation events
   * blue for generic lifecycle events   
 
-## Other events
-The obvious omission from the graph above is the [`*-pebble-ready`] event, which can be fired at any time whatsoever during the lifecycle of a charm; similarly all actions and custom events can trigger hooks which can race with any other hook in the graph. Lacking a way to add them to the mermaid graph without ruining its symmetry and so as to avoid giving the wrong impression, I omitted these altogether. 
+## Workload events
+Note the `[workload events] (k8s only)` node in the operation phase. 
+That reprsents all events meant to communicate information about the workload container on kubernetes charms. At the time of writing the only such events are:
 
-`[pre/post]-series-upgrade` machine charm events are also omitted, but these are simply part of the operation phase. Summary below:
+- [`*-pebble-ready`] 
+- [`pebble-custom-notice`]
+ 
+Both can fire at any time whatsoever during the lifecycle of a charm.
 
-```mermaid
-flowchart TD
-    subgraph Anytime[Any Time]
-        action["[*]-action"]:::custom
-        customevent["[custom event name]"]:::custom
-        
-        subgraph Kubernetes[Only on Kubernetes]
-            pebble_ready["[*]-pebble-ready"]:::kubevent
-        end
-    end
-    
-    subgraph Operation [Operation -- Machine]
-        pre_series_upgrade[pre-series-upgrade]:::machine -.- post_series_upgrade[post-series-upgrade]:::machine
-    end
-    
-classDef kubevent fill:#77f5;
-classDef custom fill:#9995;
-classDef machine fill:#2965;
-```
+Similarly, the `[pre/post]-series-upgrade (lxd only)` events can only occur on machine charms at any time during the operation phase.
 
 ### Notes on the Setup phase
 * The only events that are guaranteed to always occur during Setup are [`start`], [`config-changed`] and [`install`]. The other events only happen if the charm happens to have (peer) relations at install time (e.g. if a charm that already is related to another gets scaled up) or it has storage. Same goes for leadership events. For that reason they are styled with dashed borders.
@@ -117,9 +111,9 @@ classDef machine fill:#2965;
 * Any [`*-relation-created`] event can occur at Setup time, but if X is a peer relation, then `X-relation-created` can **only** occur at Setup, while for non-peer relations, they can occur also during Operation. The reason for this is that a peer relation cannot be created or destroyed 'manually' at arbitrary times, they either exist or not, and if they do exist, then we know it from the start.
 
 ### Notes on the Operation phase
-* [`update-status`] is fired automatically and periodically, at a configurable regular interval (default is 5m).
-* [`collect-metrics`] is fired automatically and periodically, at a regular interval of 5m, AND whenever the user runs `juju collect-metrics`.
-* [`leader-elected`] and [`leader-settings-changed`] only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
+* [`update-status`] is fired automatically and periodically, at a configurable regular interval (default is 5m) which can be configured by `juju model-config update-status-hook-interval`.
+* [`collect-metrics`] is fired automatically and periodically in older juju versions, at a regular interval of 5m, AND whenever the user runs `juju collect-metrics`.
+* [`leader-elected`] and [`leader-settings-changed`] only fire on the leader unit and the non-leader unit(s) respectively.
 * There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
   * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same X. Same goes for [`*-relation-created`] and [`*-relation-broken`], as well as [`*-relation-created`] and [`*-relation-changed`].
   * Ownership: `joined/departed` are unit-level events: they fire when an application has a (peer) relation and a new unit joins or leaves. All units (including the newly created or leaving unit), will receive the event. `created/broken` are relation-level events, in that they fire when two applications become related or a relation is removed (e.g. via `juju remove-relation` or because an application is destroyed).
@@ -127,7 +121,7 @@ classDef machine fill:#2965;
 * Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
 * A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of [`*-relation-changed`] events can be fired at any time during operation, and they need not be preceded by a [`*-relation-joined`] event.
 * There are more temporal orderings than the one displayed here; event chains can be initiated by human operation as detailed [in the sdk docs](https://juju.is/docs/sdk/events) and [the leadership docs](https://juju.is/docs/sdk/leadership). For example, it is guaranteed that a [`leader-elected`] is always followed by a [`settings-changed`], and that if you remove the leader unit, you should get [`*-relation-departed`] and a [`leader-settings-changed`] on the remaining units (although no specific ordering can be guaranteed [cfr this bug...](https://bugs.launchpad.net/juju/+bug/1964582)). 
-* Secret events only occur if your charm uses secrets.
+* Secret events can only occur if your charm uses secrets and the juju controller they're managed by is recent enough.
 
 ### Notes on the Teardown phase
 * Both relation and storage events are guaranteed to fire before [`stop`]/[`remove`] if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
@@ -138,6 +132,7 @@ classDef machine fill:#2965;
 * The events in the Operation phase can interleave in arbitrary ways. For this reason it's essential that hook handlers make *no assumptions* about each other -- each handler should check its preconditions independently and operate under the assumption that the relative ordering is totally arbitrary -- except relation events, which have some partial ordering as explained above.
 
 ## Deprecation notices
+* [`collect-metrics`] is no longer being fired in recent juju versions.
 * [`leader-settings-changed`] is being deprecated; in a future release it will be gone.
 * `leader-deposed` is a juju hook that was planned but never actually implemented. You may see a WARNING mentioning it in the `juju debug-log` but you can ignore it.
 
