@@ -36,7 +36,7 @@ flowchart TD
 
 
         update_status[update-status] ~~~
-        upgrade_charm[upgrade-charm] --> config_changed_mant[config-changed]
+        upgrade_charm[upgrade-charm] --> config_changed_mant[config-changed] --> start
 
         collect_metrics[collect-metrics] ~~~
         leader_elected_mant[leader-elected]:::leaderEvent ~~~ 
